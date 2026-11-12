@@ -1,0 +1,187 @@
+{% extends "bnovo/base.html" %}
+
+{% block title %}Главная — Bnovo Sync{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Настройки</h2>
+    <form method="post">
+      {% csrf_token %}
+      <div class="grid">
+        <div class="col-6">
+          <label for="{{ form.base_url.id_for_label }}">Base URL</label>
+          {{ form.base_url }}
+        </div>
+        <div class="col-6">
+          <label for="{{ form.api_login.id_for_label }}">API login</label>
+          {{ form.api_login }}
+        </div>
+        <div class="col-6">
+          <label for="{{ form.api_password.id_for_label }}">API password</label>
+          {{ form.api_password }}
+        </div>
+        <div class="col-3">
+          <label for="{{ form.date_from.id_for_label }}">Дата от</label>
+          {{ form.date_from }}
+        </div>
+        <div class="col-3">
+          <label for="{{ form.date_to.id_for_label }}">Дата до</label>
+          {{ form.date_to }}
+        </div>
+        <div class="col-3">
+          <label for="{{ form.rate_limit_per_min.id_for_label }}">Лимит запросов/мин</label>
+          {{ form.rate_limit_per_min }}
+        </div>
+        <div class="col-3">
+          <label for="{{ form.auto_sync_interval_minutes.id_for_label }}">Автосинхр. интервал (мин)</label>
+          {{ form.auto_sync_interval_minutes }}
+        </div>
+        <div class="col-3">
+          <label for="{{ form.aggregation_interval_minutes.id_for_label }}">Агрегация интервал (мин)</label>
+          {{ form.aggregation_interval_minutes }}
+        </div>
+        <div class="col-3">
+          <label for="{{ form.sync_window_days.id_for_label }}">Окно данных (дней)</label>
+          {{ form.sync_window_days }}
+        </div>
+        <div class="col-3">
+          <label for="{{ form.timeout_seconds.id_for_label }}">Таймаут (сек)</label>
+          {{ form.timeout_seconds }}
+        </div>
+        <div class="col-4">
+          <label for="{{ form.verify_ssl.id_for_label }}">Проверка SSL</label>
+          {{ form.verify_ssl }}
+        </div>
+      </div>
+      <div class="actions">
+        <button type="submit" name="action" value="save_settings">Сохранить настройки</button>
+        <button type="submit" name="action" value="queue_sync" class="secondary">Запросить синхронизацию</button>
+      </div>
+    </form>
+    <form method="post" style="margin-top: 12px;">
+      {% csrf_token %}
+      <div class="actions">
+        <button type="submit" name="action" value="toggle_autosync" class="{% if form.instance.auto_sync_enabled %}danger{% else %}ghost{% endif %}">
+          {% if form.instance.auto_sync_enabled %}Выключить raw worker{% else %}Включить raw worker{% endif %}
+        </button>
+        <button type="submit" name="action" value="toggle_aggregation" class="{% if form.instance.aggregation_enabled %}danger{% else %}ghost{% endif %}">
+          {% if form.instance.aggregation_enabled %}Выключить aggregation worker{% else %}Включить aggregation worker{% endif %}
+        </button>
+        <span class="muted">
+          {% if form.instance.auto_sync_enabled %}
+            Raw-воркер включен каждые {{ form.instance.auto_sync_interval_minutes }} мин.
+          {% else %}
+            Raw-воркер выключен.
+          {% endif %}
+          {% if form.instance.aggregation_enabled %}
+            Aggregation-воркер включен каждые {{ form.instance.aggregation_interval_minutes }} мин.
+          {% else %}
+            Aggregation-воркер выключен.
+          {% endif %}
+        </span>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Текущее состояние</h2>
+    <div class="grid">
+      <div class="col-3">
+        <strong>Заезды</strong><br>
+        <span class="muted">{{ arrivals_count }} агрегированных записей</span>
+      </div>
+      <div class="col-3">
+        <strong>Окно</strong><br>
+        <span class="muted">Последние {{ form.instance.sync_window_days }} дней</span>
+      </div>
+      <div class="col-6">
+        <strong>Команды воркеров</strong><br>
+        <span class="muted">`venv\Scripts\python.exe manage.py bnovo_worker --worker raw_arrivals --force`</span><br>
+        <span class="muted">`venv\Scripts\python.exe manage.py bnovo_worker --worker arrival_aggregation --force`</span>
+      </div>
+    </div>
+    <table style="margin-top: 14px;">
+      <thead>
+        <tr>
+          <th>Воркер</th>
+          <th>Захвачен до</th>
+          <th>Последний старт</th>
+          <th>Последний успех</th>
+          <th>Ошибка</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lease in worker_leases %}
+        <tr>
+          <td>{{ lease.code }}</td>
+          <td>{{ lease.locked_until|default:"—" }}</td>
+          <td>{{ lease.last_started_at|default:"—" }}</td>
+          <td>{{ lease.last_success_at|default:"—" }}</td>
+          <td>{{ lease.last_error|default:"—" }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="muted">Нет записей о воркерах</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel">
+    <h2>Запуски</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Job</th>
+          <th>Статус</th>
+          <th>Когда</th>
+          <th>Запросы</th>
+          <th>Ошибки</th>
+          <th>Источник</th>
+          <th>Длительность</th>
+          <th>Примечание</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for run in runs %}
+        <tr>
+          <td>{{ run.job_code }}</td>
+          <td>{{ run.status }}</td>
+          <td>{{ run.created_at }}</td>
+          <td>{{ run.successful_requests }}/{{ run.total_requests }}</td>
+          <td>{{ run.failed_requests }}</td>
+          <td>{{ run.triggered_by }}</td>
+          <td>
+            {% if run.duration_seconds %}
+              {{ run.duration_seconds }} сек
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+          <td>{{ run.note }}</td>
+          <td>
+            {% if run.status == 'running' %}
+              {% if run.cancel_requested %}
+                <span class="muted">Останавливается…</span>
+              {% else %}
+                <form method="post" action="{% url 'stop_run' run.id %}">
+                  {% csrf_token %}
+                  <button type="submit" class="danger">Стоп</button>
+                </form>
+              {% endif %}
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="9" class="muted">Нет запусков</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}

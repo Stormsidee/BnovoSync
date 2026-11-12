@@ -1,0 +1,7 @@
+Django 
+fastapi 
+uvicorn 
+httpx 
+dj-database-url 
+python-dotenv
+psycopg[binary]

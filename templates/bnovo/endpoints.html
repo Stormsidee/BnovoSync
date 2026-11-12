@@ -1,0 +1,45 @@
+{% extends "bnovo/base.html" %}
+
+{% block title %}Эндпоинты — Bnovo Sync{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Эндпоинты</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="save_endpoints">
+      <table>
+        <thead>
+          <tr>
+            <th>Вкл</th>
+            <th>Код</th>
+            <th>Название</th>
+            <th>Описание</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in endpoint_rows %}
+          <tr>
+            <td>
+              <input type="checkbox" name="endpoint_enabled_{{ row.code }}" {% if row.enabled %}checked{% endif %}>
+              <input type="hidden" name="endpoint_code" value="{{ row.code }}">
+              <input type="hidden" name="endpoint_name_{{ row.code }}" value="{{ row.name }}">
+              <input type="hidden" name="endpoint_description_{{ row.code }}" value="{{ row.description }}">
+            </td>
+            <td>{{ row.code }}</td>
+            <td>{{ row.name }}</td>
+            <td class="muted">{{ row.description }}</td>
+          </tr>
+          {% empty %}
+          <tr>
+            <td colspan="4" class="muted">Нет эндпоинтов</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div class="actions">
+        <button type="submit">Сохранить эндпоинты</button>
+      </div>
+    </form>
+  </section>
+{% endblock %}

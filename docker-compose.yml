@@ -1,0 +1,75 @@
+name: bnovosoft
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: bnovosoft-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: app_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d app_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  web:
+    image: bnovosoft-app:local
+    build:
+      context: .
+    container_name: bnovosoft-web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
+      DJANGO_ALLOWED_HOSTS: 127.0.0.1,localhost,0.0.0.0,::1,web
+    command: sh /app/docker/start-web.sh
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  raw-worker:
+    image: bnovosoft-app:local
+    container_name: bnovosoft-raw-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
+      DJANGO_ALLOWED_HOSTS: 127.0.0.1,localhost,0.0.0.0,::1,web
+    command: sh /app/docker/start-worker.sh raw_arrivals
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+  aggregation-worker:
+    image: bnovosoft-app:local
+    container_name: bnovosoft-aggregation-worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/app_db
+      DJANGO_ALLOWED_HOSTS: 127.0.0.1,localhost,0.0.0.0,::1,web
+    command: sh /app/docker/start-worker.sh arrival_aggregation
+    volumes:
+      - .:/app
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

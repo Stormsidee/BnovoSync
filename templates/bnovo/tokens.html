@@ -1,0 +1,80 @@
+{% extends "bnovo/base.html" %}
+
+{% block title %}Токены — Bnovo Sync{% endblock %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Создать токен</h2>
+    <form method="post">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="create_token">
+      <div class="grid">
+        <div class="col-4">
+          <label for="ttl">Срок жизни</label>
+          <select id="ttl" name="ttl">
+            <option value="1h">1 час</option>
+            <option value="1d" selected>1 день</option>
+            <option value="1m">1 месяц</option>
+            <option value="3m">3 месяца</option>
+          </select>
+        </div>
+      </div>
+      <div class="actions">
+        <button type="submit">Сгенерировать токен</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>Текущие токены</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Токен</th>
+          <th>Создан</th>
+          <th>Истекает</th>
+          <th>Статус</th>
+          <th>Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for token in tokens %}
+        <tr>
+          <td><code>{{ token.token }}</code></td>
+          <td>{{ token.created_at }}</td>
+          <td>
+            {% if token.expires_at %}
+              {{ token.expires_at }}
+            {% else %}
+              <span class="muted">Не истекает</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if token.is_active %}
+              Активен
+            {% else %}
+              <span class="muted">Неактивен</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if token.is_active %}
+              <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="revoke_token">
+                <input type="hidden" name="token_id" value="{{ token.id }}">
+                <button type="submit" class="danger">Отозвать</button>
+              </form>
+            {% else %}
+              <span class="muted">—</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="5" class="muted">Пока нет токенов</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+{% endblock %}
